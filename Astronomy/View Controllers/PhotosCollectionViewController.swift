@@ -6,6 +6,7 @@ class PhotosCollectionViewController: UIViewController, UICollectionViewDataSour
     // MARK: - Properties
     
     private let client = MarsRoverClient()
+    let cache = Cache<Int, UIImage>()
     
     private var roverInfo: MarsRover? {
         didSet {
@@ -93,14 +94,24 @@ class PhotosCollectionViewController: UIViewController, UICollectionViewDataSour
         
         /// TODO: Implement image loading here
         
-        guard let url = photoReference.imageURL.usingHTTPS else { return }
-        
         if let currentIndex = self.collectionView.indexPath(for: cell),
-            currentIndex == indexPath { return }
+        currentIndex == indexPath { return }
+        
+        let checkID = photoReference.id
+        
+        if let cacheImageData = cache.value(for: checkID) {
+            cell.imageView.image = cacheImageData
+            return
+        }
+        
+        guard let url = photoReference.imageURL.usingHTTPS else { return }
         
         URLSession.shared.dataTask(with: url) { (data, _, error) in
             guard error == nil,
                 let imageData = data else { return }
+            
+            guard let imageToCache = UIImage(data: imageData) else { return }
+            self.cache.cache(value: imageToCache, for: checkID)
             
             DispatchQueue.main.async {
                 cell.imageView.image = UIImage(data: imageData)
